@@ -8,19 +8,19 @@ from pathlib import Path
 import os
 import sys
 
-# Add signmesh directory to Python path
-signmesh_path = Path(__file__).parent / "signmesh"
-if str(signmesh_path) not in sys.path:
-    sys.path.insert(0, str(signmesh_path))
+# Add ecolang directory to Python path
+ecolang_path = Path(__file__).parent / "ecolang"
+if str(ecolang_path) not in sys.path:
+    sys.path.insert(0, str(ecolang_path))
 
-# Import from signmesh directory
+# Import from ecolang directory
 try:
     import config
     from file_manager import FileManager
     from mesh_renderer import MeshRenderer
 except ImportError as e:
-    st.error(f"Failed to import SignMesh modules: {e}")
-    st.info("Make sure the signmesh directory contains all required files")
+    st.error(f"Failed to import ECOLANG modules: {e}")
+    st.info("Make sure the ecolang directory contains all required files")
     st.stop()
 
 # Page configuration
