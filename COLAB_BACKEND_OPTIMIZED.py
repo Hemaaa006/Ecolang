@@ -93,7 +93,7 @@ def get_renderer(img_size=720):
 def load_frame_params(video_id, frame_num):
     """Load SMPL-X parameters from NPZ file"""
     folder = VIDEO_FOLDER_MAPPING[video_id]
-    npz_path = os.path.join(BASE_PATH, "Extracted_parameters", folder, f"frame_{frame_num:04d}.npz")
+    npz_path = os.path.join(BASE_PATH, "Extracted_parameters", folder, f"frame_{frame_num:04d}_params.npz")
 
     if not os.path.exists(npz_path):
         return None, f"NPZ not found"

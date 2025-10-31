@@ -82,7 +82,7 @@ def test_single_frame(video_id='ch07_speakerview_012', frame_num=1):
     print(f"{'='*60}\n")
 
     folder = VIDEO_FOLDER_MAPPING[video_id]
-    npz_path = os.path.join(BASE_PATH, "Extracted_parameters", folder, f"frame_{frame_num:04d}.npz")
+    npz_path = os.path.join(BASE_PATH, "Extracted_parameters", folder, f"frame_{frame_num:04d}_params.npz")
 
     print(f"1. Loading NPZ: {npz_path}")
     print(f"   Exists: {os.path.exists(npz_path)}")
