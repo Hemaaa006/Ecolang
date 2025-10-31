@@ -1,6 +1,6 @@
 """
 ECOLANG - Main Streamlit Application
-3D Mesh Rendering from Video Parameters
+3D Mesh Rendering from Video Parameters using Colab API
 """
 import streamlit as st
 import numpy as np
@@ -9,8 +9,7 @@ import os
 
 # Local imports
 import config
-from file_manager import FileManager
-from mesh_renderer import MeshRenderer
+from api_client import get_api_client
 
 # Page configuration
 st.set_page_config(
@@ -30,24 +29,12 @@ st.markdown("""
         font-weight: 700;
         margin-bottom: 10px;
     }
-    .sub-header {
-        text-align: center;
-        color: #6C757D;
-        font-size: 20px;
-        margin-bottom: 40px;
-    }
     .video-panel {
         background: white;
         border-radius: 12px;
         padding: 20px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         margin-bottom: 20px;
-    }
-    .stats-box {
-        background: #F8F9FA;
-        border-radius: 8px;
-        padding: 15px;
-        border-left: 4px solid #007BFF;
     }
     .success-msg {
         background: #D4EDDA;
@@ -70,34 +57,42 @@ st.markdown("""
         border-radius: 4px;
         border: 1px solid #F5C6CB;
     }
+    .info-msg {
+        background: #D1ECF1;
+        color: #0C5460;
+        padding: 10px;
+        border-radius: 4px;
+        border: 1px solid #BEE5EB;
+    }
 </style>
 """, unsafe_allow_html=True)
-
-# Initialize managers
-@st.cache_resource
-def get_file_manager():
-    return FileManager()
-
-@st.cache_resource
-def get_renderer(model_path, device):
-    return MeshRenderer(model_path, device=device)
 
 # Main app
 def main():
     # Header
     st.markdown('<h1 class="main-header">ECOLANG</h1>', unsafe_allow_html=True)
 
-    # Initialize managers
-    file_mgr = get_file_manager()
+    # Initialize API client
+    api_client = get_api_client()
 
-    # Auto-initialize renderer
-    if 'renderer' not in st.session_state:
-        with st.spinner("Loading SMPL-X model..."):
-            try:
-                st.session_state.renderer = get_renderer(config.MODEL_PATH, config.DEFAULT_DEVICE)
-            except Exception as e:
-                st.error(f"Failed to initialize renderer: {e}")
-                return
+    # Check API health on first load
+    if 'api_healthy' not in st.session_state:
+        with st.spinner("Connecting to Colab backend..."):
+            healthy, info = api_client.health_check()
+            st.session_state.api_healthy = healthy
+            st.session_state.api_info = info
+
+    # Show API status
+    if not st.session_state.api_healthy:
+        st.error(f"Cannot connect to Colab backend: {st.session_state.api_info}")
+        st.info("Please ensure your Colab notebook is running and the ngrok URL is correct in Streamlit secrets")
+        return
+    else:
+        # Show subtle API status indicator
+        with st.expander("Backend Status"):
+            st.markdown(f'<div class="info-msg">Connected to Colab API</div>', unsafe_allow_html=True)
+            if isinstance(st.session_state.api_info, dict):
+                st.json(st.session_state.api_info)
 
     # Main content
     col1, col2 = st.columns(2)
@@ -115,13 +110,11 @@ def main():
             key="video_selector"
         )
 
-        # Display video
-        video_path = file_mgr.get_video_path(selected_video)
+        # Display video info
+        video_info = config.VIDEO_LIBRARY[selected_video]
+        st.video(video_info['github_url'])
 
-        if video_path and os.path.exists(video_path):
-            st.video(video_path)
-        else:
-            st.error(f"Video not found: {video_path}")
+        st.caption(f"Duration: {video_info['duration']} | FPS: {video_info['fps']} | Total Frames: {video_info['frames']}")
 
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -140,18 +133,10 @@ def main():
             key="frame_selector"
         )
 
-        # Auto-render on video selection change
-        npz_path = file_mgr.get_npz_path(selected_video, frame_num)
-
-        if not os.path.exists(npz_path):
-            st.error(f"NPZ file not found: frame_{frame_num:04d}")
-        else:
-            with st.spinner("Rendering mesh..."):
-                img, status = st.session_state.renderer.render_frame(
-                    npz_path,
-                    person_id=0,
-                    use_fallback=True
-                )
+        # Render button
+        if st.button("Render Frame", type="primary", use_container_width=True):
+            with st.spinner("Rendering mesh via Colab API..."):
+                img, status = api_client.render_frame(selected_video, frame_num)
 
                 # Display result
                 if img is not None:
@@ -162,7 +147,7 @@ def main():
                         st.markdown('<div class="success-msg">Rendered successfully</div>',
                                   unsafe_allow_html=True)
                     elif status.startswith("fallback"):
-                        reason = status.split(":", 1)[1]
+                        reason = status.split(":", 1)[1] if ":" in status else ""
                         st.markdown(f'<div class="warning-msg">Using fallback: {reason}</div>',
                                   unsafe_allow_html=True)
                 else:
