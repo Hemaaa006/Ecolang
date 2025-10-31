@@ -8,7 +8,12 @@
       "Bash(git commit:*)",
       "Bash(git branch:*)",
       "Bash(git push:*)",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "Bash(dir:*)",
+      "Bash(python convert_drive_links.py:*)",
+      "Read(//c/Users/dell/Desktop/**)",
+      "Bash(git rm:*)",
+      "Bash(del nul)"
     ],
     "deny": [],
     "ask": []
