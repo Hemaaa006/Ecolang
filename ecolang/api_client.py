@@ -33,36 +33,31 @@ class ColabAPIClient:
         except requests.exceptions.RequestException as e:
             return False, f"Connection error: {str(e)}"
 
-    def render_frame(self, video_id, frame_number):
+    def render_video(self, video_id, progress_callback=None):
         """
-        Request frame rendering from Colab API
+        Request full video rendering from Colab API
 
         Args:
             video_id: Video identifier (e.g., 'ch07_speakerview_012')
-            frame_number: Frame number to render (1-indexed)
+            progress_callback: Optional callback function(current, total, message)
 
         Returns:
-            tuple: (image_array, status_message)
+            tuple: (video_url, status_message)
         """
         try:
             # Make API request
             response = self.session.post(
-                f"{self.api_url}/render",
-                json={
-                    "video_id": video_id,
-                    "frame_number": frame_number
-                },
-                timeout=30  # Rendering can take time
+                f"{self.api_url}/render_video",
+                json={"video_id": video_id},
+                timeout=300,  # 5 minutes for full video
+                stream=True
             )
 
             if response.status_code == 200:
                 result = response.json()
 
                 if result.get('success'):
-                    # Decode base64 image
-                    img_data = base64.b64decode(result['image'])
-                    img = Image.open(io.BytesIO(img_data))
-                    return np.array(img), "success"
+                    return result.get('video_url'), "success"
                 else:
                     return None, f"error:{result.get('error', 'Unknown error')}"
             else:
@@ -74,6 +69,29 @@ class ColabAPIClient:
             return None, f"error:Connection error - {str(e)}"
         except Exception as e:
             return None, f"error:{str(e)}"
+
+    def get_render_progress(self, video_id):
+        """
+        Get rendering progress for a video
+
+        Args:
+            video_id: Video identifier
+
+        Returns:
+            dict: Progress information {current_frame, total_frames, status}
+        """
+        try:
+            response = self.session.get(
+                f"{self.api_url}/render_progress/{video_id}",
+                timeout=5
+            )
+
+            if response.status_code == 200:
+                return response.json()
+            return None
+
+        except Exception:
+            return None
 
 
 @st.cache_resource

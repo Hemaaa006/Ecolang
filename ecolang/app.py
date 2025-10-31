@@ -3,9 +3,7 @@ ECOLANG - Main Streamlit Application
 3D Mesh Rendering from Video Parameters using Colab API
 """
 import streamlit as st
-import numpy as np
-from pathlib import Path
-import os
+import time
 
 # Local imports
 import config
@@ -27,7 +25,7 @@ st.markdown("""
         color: #007BFF;
         font-size: 42px;
         font-weight: 700;
-        margin-bottom: 10px;
+        margin-bottom: 30px;
     }
     .video-panel {
         background: white;
@@ -42,13 +40,7 @@ st.markdown("""
         padding: 10px;
         border-radius: 4px;
         border: 1px solid #C3E6CB;
-    }
-    .warning-msg {
-        background: #FFF3CD;
-        color: #856404;
-        padding: 10px;
-        border-radius: 4px;
-        border: 1px solid #FFEEBA;
+        margin-top: 10px;
     }
     .error-msg {
         background: #F8D7DA;
@@ -56,6 +48,7 @@ st.markdown("""
         padding: 10px;
         border-radius: 4px;
         border: 1px solid #F5C6CB;
+        margin-top: 10px;
     }
     .info-msg {
         background: #D1ECF1;
@@ -63,6 +56,9 @@ st.markdown("""
         padding: 10px;
         border-radius: 4px;
         border: 1px solid #BEE5EB;
+    }
+    iframe {
+        border-radius: 8px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -87,12 +83,6 @@ def main():
         st.error(f"Cannot connect to Colab backend: {st.session_state.api_info}")
         st.info("Please ensure your Colab notebook is running and the ngrok URL is correct in Streamlit secrets")
         return
-    else:
-        # Show subtle API status indicator
-        with st.expander("Backend Status"):
-            st.markdown(f'<div class="info-msg">Connected to Colab API</div>', unsafe_allow_html=True)
-            if isinstance(st.session_state.api_info, dict):
-                st.json(st.session_state.api_info)
 
     # Main content
     col1, col2 = st.columns(2)
@@ -110,9 +100,20 @@ def main():
             key="video_selector"
         )
 
-        # Display video info
+        # Display video using iframe for Google Drive
         video_info = config.VIDEO_LIBRARY[selected_video]
-        st.video(video_info['github_url'])
+
+        # Embed Google Drive video
+        video_html = f"""
+        <iframe src="{video_info['video_url']}"
+                width="100%"
+                height="400"
+                frameborder="0"
+                allow="autoplay"
+                allowfullscreen>
+        </iframe>
+        """
+        st.markdown(video_html, unsafe_allow_html=True)
 
         st.caption(f"Duration: {video_info['duration']} | FPS: {video_info['fps']} | Total Frames: {video_info['frames']}")
 
@@ -120,40 +121,55 @@ def main():
 
     with col2:
         st.markdown('<div class="video-panel">', unsafe_allow_html=True)
-        st.subheader("Mesh Render")
-
-        # Frame selector
-        max_frames = config.VIDEO_LIBRARY[selected_video]['frames']
-        frame_num = st.number_input(
-            "Frame Number",
-            min_value=1,
-            max_value=max_frames,
-            value=1,
-            step=1,
-            key="frame_selector"
-        )
+        st.subheader("Mesh Rendered Video")
 
         # Render button
-        if st.button("Render Frame", type="primary", use_container_width=True):
-            with st.spinner("Rendering mesh via Colab API..."):
-                img, status = api_client.render_frame(selected_video, frame_num)
+        if st.button("Render Video", type="primary", use_container_width=True):
+            # Create placeholder for progress
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            video_placeholder = st.empty()
 
-                # Display result
-                if img is not None:
-                    st.image(img, use_column_width=True)
+            # Start rendering
+            status_text.text("Starting video rendering...")
 
-                    # Status message
-                    if status == "success":
-                        st.markdown('<div class="success-msg">Rendered successfully</div>',
-                                  unsafe_allow_html=True)
-                    elif status.startswith("fallback"):
-                        reason = status.split(":", 1)[1] if ":" in status else ""
-                        st.markdown(f'<div class="warning-msg">Using fallback: {reason}</div>',
-                                  unsafe_allow_html=True)
+            # Initialize progress tracking
+            start_time = time.time()
+            max_frames = video_info['frames']
+
+            # Call API to start rendering
+            with st.spinner("Rendering video..."):
+                video_url, status = api_client.render_video(selected_video)
+
+                if video_url:
+                    # Success - show rendered video
+                    progress_bar.progress(100)
+                    status_text.text("Rendering complete!")
+
+                    # Display rendered video
+                    video_placeholder.markdown(f"""
+                    <iframe src="{video_url}"
+                            width="100%"
+                            height="400"
+                            frameborder="0"
+                            allow="autoplay"
+                            allowfullscreen>
+                    </iframe>
+                    """, unsafe_allow_html=True)
+
+                    st.markdown('<div class="success-msg">Video rendered successfully!</div>',
+                              unsafe_allow_html=True)
                 else:
+                    # Error
+                    progress_bar.empty()
+                    status_text.empty()
                     error = status.split(":", 1)[1] if ":" in status else status
                     st.markdown(f'<div class="error-msg">Render failed: {error}</div>',
                                       unsafe_allow_html=True)
+        else:
+            # Show placeholder message
+            st.info("Click 'Render Video' to generate 3D mesh rendering")
+            st.caption("The rendering process will convert all video frames to 3D mesh animations")
 
         st.markdown('</div>', unsafe_allow_html=True)
 

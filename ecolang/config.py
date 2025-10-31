@@ -36,7 +36,7 @@ VIDEO_LIBRARY = {
     'ch07_speakerview_012': {
         'title': 'CH07 Speaker View 012',
         'filename': 'ch07_speakerview_012.mp4',
-        'github_url': 'https://drive.google.com/uc?export=download&id=1LLeKFl_MqUdp1EVByHfs0dTJO8Qhyt2D',
+        'video_url': 'https://drive.google.com/file/d/1LLeKFl_MqUdp1EVByHfs0dTJO8Qhyt2D/preview',
         'duration': '1:00',
         'fps': 30,
         'frames': 1800,
@@ -44,7 +44,7 @@ VIDEO_LIBRARY = {
     'ch08_speakerview_025': {
         'title': 'CH08 Speaker View 025',
         'filename': 'ch08_speakerview_025.mp4',
-        'github_url': 'https://drive.google.com/uc?export=download&id=1G_Mg7n3HhJrz8tBBSMHiDGPft7BZSkL1',
+        'video_url': 'https://drive.google.com/file/d/1G_Mg7n3HhJrz8tBBSMHiDGPft7BZSkL1/preview',
         'duration': '1:00',
         'fps': 30,
         'frames': 1800
@@ -52,7 +52,7 @@ VIDEO_LIBRARY = {
     'ch09_speakerview_027': {
         'title': 'CH09 Speaker View 027',
         'filename': 'ch09_speakerview_027.mp4',
-        'github_url': 'https://drive.google.com/uc?export=download&id=1HgrEvuiI0ivgOrJIsmzknUhzIUlz2e_a',
+        'video_url': 'https://drive.google.com/file/d/1HgrEvuiI0ivgOrJIsmzknUhzIUlz2e_a/preview',
         'duration': '1:00',
         'fps': 30,
         'frames': 1800
@@ -60,7 +60,7 @@ VIDEO_LIBRARY = {
     'ch11_speakerview_002': {
         'title': 'CH11 Speaker View 002',
         'filename': 'ch11_speakerview_002.mp4',
-        'github_url': 'https://drive.google.com/uc?export=download&id=1kU35NXEdfl_VvJEX2oHRiawdeTWzPlN3',
+        'video_url': 'https://drive.google.com/file/d/1kU35NXEdfl_VvJEX2oHRiawdeTWzPlN3/preview',
         'duration': '1:00',
         'fps': 30,
         'frames': 1800
