@@ -1,6 +1,6 @@
 """
 ECOLANG - Main Streamlit Application
-3D Mesh Rendering from Video Parameters using Colab API
+Side-by-side video playback: Original vs Rendered
 """
 import streamlit as st
 import time
@@ -76,6 +76,12 @@ def main():
         st.info("Please ensure your Colab notebook is running and ngrok URL is in Streamlit secrets")
         return
 
+    # Initialize session state for rendered video
+    if 'rendered_video_url' not in st.session_state:
+        st.session_state.rendered_video_url = None
+    if 'current_video_id' not in st.session_state:
+        st.session_state.current_video_id = None
+
     # Main content
     col1, col2 = st.columns(2)
 
@@ -92,7 +98,12 @@ def main():
             key="video_selector"
         )
 
-        # Display video
+        # Reset rendered video if selection changes
+        if st.session_state.current_video_id != selected_video:
+            st.session_state.rendered_video_url = None
+            st.session_state.current_video_id = selected_video
+
+        # Display original video
         video_info = config.VIDEO_LIBRARY[selected_video]
         video_html = f"""
         <iframe src="{video_info['video_url']}"
@@ -104,12 +115,27 @@ def main():
         </iframe>
         """
         st.markdown(video_html, unsafe_allow_html=True)
-        st.caption(f"Duration: {video_info['duration']} | FPS: {video_info['fps']} | Total Frames: {video_info['frames']}")
+        st.caption(f"Duration: {video_info['duration']} | FPS: {video_info['fps']} | Frames: {video_info['frames']}")
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col2:
         st.markdown('<div class="video-panel">', unsafe_allow_html=True)
         st.subheader("Mesh Rendered Video")
+
+        # Show rendered video if available
+        if st.session_state.rendered_video_url:
+            rendered_html = f"""
+            <iframe src="{st.session_state.rendered_video_url}"
+                    width="100%"
+                    height="400"
+                    frameborder="0"
+                    allow="autoplay"
+                    allowfullscreen>
+            </iframe>
+            """
+            st.markdown(rendered_html, unsafe_allow_html=True)
+            st.markdown('<div class="success-msg">✓ Rendered video ready! Videos play side-by-side.</div>',
+                      unsafe_allow_html=True)
 
         # Render button
         if st.button("Render Video", type="primary", use_container_width=True):
@@ -141,13 +167,25 @@ def main():
                             progress_bar.progress(100)
                             status_text.text("✓ Rendering complete!")
 
-                            # Show success message
-                            st.markdown('<div class="success-msg">Video rendered successfully!</div>',
-                                      unsafe_allow_html=True)
+                            # Get video URL and save to session state
+                            rendered_url = progress_data.get('video_url')
+                            file_id = progress_data.get('file_id')
+                            size_mb = progress_data.get('size_mb', 0)
 
-                            # Show download info
-                            st.info(f"Rendered video saved to: {progress_data.get('video_url', 'Drive folder')}")
-                            st.caption("The video is saved in your Google Drive under /ecolang/rendered_videos/")
+                            if rendered_url and file_id:
+                                # Successfully uploaded with auto-sharing
+                                st.session_state.rendered_video_url = rendered_url
+                                st.markdown('<div class="success-msg">✅ Video rendered and uploaded to Drive!</div>',
+                                          unsafe_allow_html=True)
+                                st.caption(f"📦 File ID: {file_id} | 💾 Size: {size_mb:.1f} MB")
+                                st.rerun()  # Refresh to show video
+                            else:
+                                # Rendering worked but upload failed
+                                st.markdown('<div class="success-msg">✅ Video rendered successfully!</div>',
+                                          unsafe_allow_html=True)
+                                local_path = progress_data.get('local_path', 'Unknown')
+                                st.warning("⚠️ Auto-upload to Drive failed - video saved locally in Colab")
+                                st.info(f"📍 Path: {local_path}")
                             break
 
                         elif job_status == "error":
@@ -160,10 +198,11 @@ def main():
                 error = status.split(":", 1)[1] if ":" in status else status
                 st.markdown(f'<div class="error-msg">Failed to start rendering: {error}</div>',
                           unsafe_allow_html=True)
-        else:
+        if not st.session_state.rendered_video_url:
             st.info("Click 'Render Video' to generate 3D mesh rendering")
             st.caption("⏱️ Rendering time: ~3-5 minutes for 1-minute video")
-            st.caption("📍 Rendered videos are saved to your Google Drive")
+            st.caption("🎬 Video will auto-upload to Drive and play here")
+            st.caption("✨ No manual steps required - fully automated!")
 
         st.markdown('</div>', unsafe_allow_html=True)
 
