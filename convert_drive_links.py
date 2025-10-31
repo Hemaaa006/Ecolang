@@ -41,7 +41,7 @@ def main():
 
     print("Instructions:")
     print("1. Upload your videos to Google Drive: /MyDrive/ecolang/videos/")
-    print("2. Right-click each video → Share → 'Anyone with the link' can view")
+    print("2. Right-click each video -> Share -> 'Anyone with the link' can view")
     print("3. Copy the share link")
     print("4. Paste it below when prompted\n")
     print("="*70)
@@ -56,14 +56,14 @@ def main():
     results = {}
 
     for filename, title in videos:
-        print(f"\n📹 {title} ({filename})")
+        print(f"\n[VIDEO] {title} ({filename})")
         print("-" * 70)
 
         while True:
             share_link = input("Paste Google Drive share link (or 'skip'): ").strip()
 
             if share_link.lower() == 'skip':
-                print("  ⚠️  Skipped")
+                print("  [SKIPPED]")
                 results[filename] = "PASTE_FILE_ID_HERE"
                 break
 
@@ -71,12 +71,12 @@ def main():
 
             if file_id:
                 direct_url = convert_to_direct_url(file_id)
-                print(f"  ✓ FILE_ID extracted: {file_id}")
-                print(f"  ✓ Direct URL: {direct_url}")
+                print(f"  [OK] FILE_ID extracted: {file_id}")
+                print(f"  [OK] Direct URL: {direct_url}")
                 results[filename] = file_id
                 break
             else:
-                print("  ❌ Invalid link format. Please try again.")
+                print("  [ERROR] Invalid link format. Please try again.")
                 print("     Expected format: https://drive.google.com/file/d/FILE_ID/view...")
 
     # Generate config.py snippet
@@ -99,7 +99,7 @@ def main():
 
     print("}")
     print("\n" + "="*70)
-    print("✅ Done! Copy the above configuration to signmesh/config.py")
+    print("[DONE] Copy the above configuration to signmesh/config.py")
     print("="*70)
 
 
@@ -107,6 +107,6 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\n\n❌ Cancelled by user")
+        print("\n\n[CANCELLED] Cancelled by user")
     except Exception as e:
-        print(f"\n❌ Error: {e}")
+        print(f"\n[ERROR] Error: {e}")
