@@ -1,4 +1,24 @@
-"""
+#!/usr/bin/env python3
+"""Update app.py with fixed UI layout"""
+
+import os
+import sys
+
+# Navigate to the ecolang directory
+ecolang_path = r"C:\Users\dell\Desktop\Steamlit_render app\ecolang"
+
+if not os.path.exists(ecolang_path):
+    # Try alternate spelling
+    ecolang_path = r"C:\Users\dell\Desktop\Steamlit_render app\ecolang"
+
+if not os.path.exists(ecolang_path):
+    print(f"ERROR: Cannot find ecolang directory")
+    sys.exit(1)
+
+app_py_path = os.path.join(ecolang_path, "app.py")
+
+# New app.py content
+content = '''"""
 ECOLANG - Main Streamlit Application
 Side-by-side video playback: Original vs Rendered
 """
@@ -202,3 +222,18 @@ def main():
 
 if __name__ == "__main__":
     main()
+'''
+
+# Write the updated file
+try:
+    with open(app_py_path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    print(f"✓ Successfully updated {app_py_path}")
+    print("\nChanges made:")
+    print("  1. Fixed video display - shows iframe for rendered video")
+    print("  2. Moved 'Render Video' button under original video")
+    print("  3. Removed extra text (duration, FPS, rendering time captions)")
+    print("  4. Videos now aligned side-by-side")
+except Exception as e:
+    print(f"ERROR: {e}")
+    sys.exit(1)
