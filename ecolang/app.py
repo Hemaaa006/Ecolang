@@ -298,12 +298,24 @@ def main():
                         progress_bar.progress(100)
                         status_text.markdown("**Complete!**")
 
+                        # Prefer direct preview URL; fallback to file_id; else note local path
                         rendered_url = progress_data.get('video_url')
+                        if not rendered_url:
+                            file_id = progress_data.get('file_id')
+                            if file_id:
+                                rendered_url = f"https://drive.google.com/file/d/{file_id}/preview?autoplay=1"
+
                         if rendered_url:
                             st.session_state.rendered_video_url = rendered_url
                             st.session_state.rendering_in_progress = False
                             time.sleep(0.5)
                             st.rerun()
+                        else:
+                            # Couldn't get a public URL; show where it was saved
+                            local_path = progress_data.get('drive_path') or progress_data.get('local_path')
+                            if local_path:
+                                status_text.markdown(f"Saved to: {local_path}")
+                            st.session_state.rendering_in_progress = False
                         break
 
                     elif job_status == "error":
