@@ -26,13 +26,16 @@ st.markdown("""
         font-size: 42px;
         font-weight: 700;
         margin-bottom: 30px;
+        width: 100%;
+        display: block;
     }
     .video-panel {
         background: white;
         border-radius: 12px;
-        padding: 20px;
+        padding: 25px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         margin-bottom: 20px;
+        height: 100%;
     }
     .success-msg {
         background: #D4EDDA;
@@ -52,6 +55,22 @@ st.markdown("""
     }
     iframe {
         border-radius: 8px;
+    }
+    /* Make columns symmetric with gap */
+    [data-testid="column"] {
+        padding: 0 15px;
+    }
+    /* Center content in main container */
+    .block-container {
+        max-width: 1400px;
+        padding-left: 2rem;
+        padding-right: 2rem;
+    }
+    /* Center subheaders */
+    .video-panel h3 {
+        text-align: center;
+        color: #333;
+        margin-bottom: 20px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -85,7 +104,7 @@ def main():
         st.session_state.rendering_in_progress = False
 
     # Main content - Side by side layout
-    col1, col2 = st.columns(2)
+    col1, col2 = st.columns(2, gap="large")
 
     with col1:
         st.markdown('<div class="video-panel">', unsafe_allow_html=True)
@@ -110,7 +129,7 @@ def main():
         video_html = f"""
         <iframe src="{video_info['video_url']}"
                 width="100%"
-                height="400"
+                height="600"
                 frameborder="0"
                 allow="autoplay"
                 allowfullscreen>
@@ -156,12 +175,7 @@ def main():
                                 # Save to session state
                                 st.session_state.rendered_video_url = rendered_url
                                 st.session_state.rendering_in_progress = False
-                                st.success("Video rendered successfully!")
                                 st.rerun()  # Refresh to show video
-                            else:
-                                st.warning("Video rendered but Drive URL not available")
-                                local_path = progress_data.get('local_path', 'Unknown')
-                                st.info(f"Path: {local_path}")
                             break
 
                         elif job_status == "error":
@@ -187,7 +201,7 @@ def main():
             rendered_html = f"""
             <iframe src="{st.session_state.rendered_video_url}"
                     width="100%"
-                    height="400"
+                    height="600"
                     frameborder="0"
                     allow="autoplay"
                     allowfullscreen>
@@ -196,7 +210,7 @@ def main():
             st.markdown(rendered_html, unsafe_allow_html=True)
         else:
             # Placeholder when no rendered video
-            st.info("Select a video and click 'Render Video' to see the 3D mesh rendering")
+            st.empty()
 
         st.markdown('</div>', unsafe_allow_html=True)
 
