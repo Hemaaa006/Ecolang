@@ -20,62 +20,102 @@ st.set_page_config(
 # Custom CSS - Minimalistic Design
 st.markdown("""
 <style>
-    /* Hide Streamlit branding */
+    /* Hide Streamlit branding and default elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
 
-    /* Main container */
-    .block-container {
-        padding-top: 3rem;
-        padding-bottom: 3rem;
-        max-width: 100%;
+    /* Remove default padding that causes duplication */
+    .main .block-container {
+        padding-top: 2rem;
+        padding-bottom: 1rem;
+        max-width: 100% !important;
     }
 
     /* Page title - centered */
     .page-title {
         text-align: center;
-        font-size: 3.5rem;
+        font-size: 3rem;
         font-weight: 700;
         color: #1a1a1a;
-        margin-bottom: 3rem;
+        margin-bottom: 2.5rem;
         letter-spacing: 0.5px;
     }
 
-    /* Column containers */
-    [data-testid="column"] {
-        padding: 0 1.5rem;
-    }
-
-    /* Section headers - centered */
-    .section-header {
+    /* Section headers */
+    h3 {
         text-align: center;
-        font-size: 1.5rem;
+        font-size: 1.4rem;
         font-weight: 600;
         color: #2c3e50;
-        margin-bottom: 1.5rem;
-        padding-bottom: 0.75rem;
+        margin-bottom: 1.25rem;
+        padding-bottom: 0.5rem;
         border-bottom: 2px solid #e0e0e0;
     }
 
-    /* Video containers */
-    .video-container {
-        background: #ffffff;
-        border-radius: 16px;
-        padding: 2rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        min-height: 700px;
+    /* Column spacing */
+    [data-testid="column"] {
+        padding: 0 1rem;
     }
 
-    /* Video iframes */
-    iframe {
+    /* Video wrapper for aspect ratio */
+    .video-wrapper {
+        position: relative;
+        width: 100%;
+        padding-bottom: 75%; /* 4:3 aspect ratio */
+        margin-bottom: 1.5rem;
+        background: #000;
         border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
 
-    /* Dropdown styling */
+    .video-wrapper iframe {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border: none;
+    }
+
+    /* Placeholder box */
+    .placeholder-wrapper {
+        position: relative;
+        width: 100%;
+        padding-bottom: 75%;
+        margin-bottom: 1.5rem;
+        background: #f8f9fa;
+        border: 2px dashed #dee2e6;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    .placeholder-content {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6c757d;
+        font-size: 1.1rem;
+        font-weight: 500;
+        text-align: center;
+        padding: 2rem;
+    }
+
+    /* Selectbox styling */
     .stSelectbox {
         margin-bottom: 1.5rem;
+    }
+
+    .stSelectbox label {
+        font-size: 0.95rem;
+        font-weight: 500;
+        color: #495057;
     }
 
     /* Button styling */
@@ -83,9 +123,8 @@ st.markdown("""
         width: 100%;
         border-radius: 8px;
         height: 3rem;
-        font-size: 1.1rem;
+        font-size: 1.05rem;
         font-weight: 600;
-        margin-top: 1rem;
         background-color: #007BFF;
         color: white;
         border: none;
@@ -95,37 +134,37 @@ st.markdown("""
     .stButton > button:hover {
         background-color: #0056b3;
         box-shadow: 0 4px 12px rgba(0,123,255,0.3);
+        transform: translateY(-1px);
+    }
+
+    .stButton > button:active {
+        transform: translateY(0);
     }
 
     /* Progress bar */
+    .stProgress {
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+    }
+
     .stProgress > div > div > div {
         background-color: #007BFF;
     }
 
-    /* Empty placeholder styling */
-    .placeholder-box {
-        background: #f8f9fa;
-        border: 2px dashed #dee2e6;
-        border-radius: 12px;
-        height: 600px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #6c757d;
-        font-size: 1.1rem;
-        font-weight: 500;
-    }
-
-    /* Remove extra padding */
-    .element-container {
-        margin-bottom: 0;
-    }
-
-    /* Selectbox label */
-    label {
-        font-size: 0.95rem;
-        font-weight: 500;
+    /* Status text */
+    .element-container p {
+        text-align: center;
         color: #495057;
+        font-weight: 500;
+    }
+
+    /* Error messages */
+    .stError {
+        background-color: #f8d7da;
+        color: #721c24;
+        padding: 1rem;
+        border-radius: 8px;
+        border: 1px solid #f5c6cb;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -157,16 +196,13 @@ def main():
         st.session_state.current_video_id = None
     if 'rendering_in_progress' not in st.session_state:
         st.session_state.rendering_in_progress = False
-    if 'progress_data' not in st.session_state:
-        st.session_state.progress_data = None
 
     # Two-column layout
     col1, col2 = st.columns([1, 1], gap="large")
 
     # LEFT COLUMN - Original Video
     with col1:
-        st.markdown('<div class="video-container">', unsafe_allow_html=True)
-        st.markdown('<div class="section-header">Original Video</div>', unsafe_allow_html=True)
+        st.subheader("Original Video")
 
         # Video selector
         video_options = {k: v['title'] for k, v in config.VIDEO_LIBRARY.items()}
@@ -174,8 +210,7 @@ def main():
             "Select Video",
             options=list(video_options.keys()),
             format_func=lambda x: video_options[x],
-            key="video_selector",
-            label_visibility="visible"
+            key="video_selector"
         )
 
         # Reset rendered video if selection changes
@@ -183,55 +218,65 @@ def main():
             st.session_state.rendered_video_url = None
             st.session_state.current_video_id = selected_video
             st.session_state.rendering_in_progress = False
-            st.session_state.progress_data = None
 
-        # Display original video
+        # Display original video with proper aspect ratio
         video_info = config.VIDEO_LIBRARY[selected_video]
         video_html = f"""
-        <iframe src="{video_info['video_url']}"
-                width="100%"
-                height="600"
-                frameborder="0"
-                allow="autoplay"
-                allowfullscreen>
-        </iframe>
-        """
-        st.markdown(video_html, unsafe_allow_html=True)
-
-        # Render button at bottom
-        render_clicked = st.button("🎬 Render Video", type="primary", key="render_btn")
-
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # RIGHT COLUMN - Rendered Video + Progress
-    with col2:
-        st.markdown('<div class="video-container">', unsafe_allow_html=True)
-        st.markdown('<div class="section-header">Mesh Rendered Video</div>', unsafe_allow_html=True)
-
-        # Show rendered video if available
-        if st.session_state.rendered_video_url:
-            rendered_html = f"""
-            <iframe src="{st.session_state.rendered_video_url}"
-                    width="100%"
-                    height="600"
-                    frameborder="0"
+        <div class="video-wrapper">
+            <iframe src="{video_info['video_url']}"
                     allow="autoplay"
                     allowfullscreen>
             </iframe>
+        </div>
+        """
+        st.markdown(video_html, unsafe_allow_html=True)
+
+        # Render button
+        render_clicked = st.button("🎬 Render Video", type="primary", key="render_btn")
+
+    # RIGHT COLUMN - Rendered Video + Progress
+    with col2:
+        st.subheader("Mesh Rendered Video")
+
+        # Show rendered video if available (with autoplay)
+        if st.session_state.rendered_video_url:
+            # Modify Google Drive URL to enable autoplay
+            rendered_url = st.session_state.rendered_video_url
+            if "drive.google.com" in rendered_url:
+                # Convert to embed format with autoplay
+                if "/file/d/" in rendered_url:
+                    file_id = rendered_url.split("/file/d/")[1].split("/")[0]
+                    rendered_url = f"https://drive.google.com/file/d/{file_id}/preview?autoplay=1"
+                elif "preview" in rendered_url and "autoplay" not in rendered_url:
+                    rendered_url = rendered_url.replace("preview", "preview?autoplay=1")
+
+            rendered_html = f"""
+            <div class="video-wrapper">
+                <iframe src="{rendered_url}"
+                        allow="autoplay"
+                        allowfullscreen>
+                </iframe>
+            </div>
             """
             st.markdown(rendered_html, unsafe_allow_html=True)
 
         # Show progress if rendering
         elif st.session_state.rendering_in_progress:
-            st.markdown('<div class="placeholder-box">Rendering in progress...</div>', unsafe_allow_html=True)
+            # Placeholder during rendering
+            st.markdown("""
+            <div class="placeholder-wrapper">
+                <div class="placeholder-content">
+                    Rendering in progress...
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
-            # Progress display area
+            # Progress display
             st.markdown("---")
             progress_bar = st.progress(0)
             status_text = st.empty()
 
             # Poll for progress
-            video_info = config.VIDEO_LIBRARY[selected_video]
             max_frames = video_info['frames']
 
             while st.session_state.rendering_in_progress:
@@ -245,17 +290,17 @@ def main():
                     if total > 0:
                         progress_pct = int((current / total) * 100)
                         progress_bar.progress(progress_pct)
-                        status_text.text(f"Frame {current} of {total} ({progress_pct}%)")
+                        status_text.markdown(f"**Frame {current} of {total}** ({progress_pct}%)")
 
                     if job_status == "complete":
                         progress_bar.progress(100)
-                        status_text.text("Complete!")
+                        status_text.markdown("**✓ Complete!**")
 
                         rendered_url = progress_data.get('video_url')
                         if rendered_url:
                             st.session_state.rendered_video_url = rendered_url
                             st.session_state.rendering_in_progress = False
-                            time.sleep(1)
+                            time.sleep(0.5)
                             st.rerun()
                         break
 
@@ -269,9 +314,13 @@ def main():
 
         # Empty state
         else:
-            st.markdown('<div class="placeholder-box">Select a video and click "Render Video"</div>', unsafe_allow_html=True)
-
-        st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("""
+            <div class="placeholder-wrapper">
+                <div class="placeholder-content">
+                    Select a video and click "Render Video"
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
     # Handle render button click
     if render_clicked and not st.session_state.rendering_in_progress:
