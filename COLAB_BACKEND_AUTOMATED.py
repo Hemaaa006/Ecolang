@@ -120,6 +120,12 @@ def render_frame(video_id, frame_num):
         fx, fy    = map(float, Z[f"person_{PERSON_ID}_focal"])
         cx, cy    = map(float, Z[f"person_{PERSON_ID}_princpt"])
 
+        # Validate camera parameters
+        if np.isnan([fx, fy, cx, cy]).any() or np.isinf([fx, fy, cx, cy]).any():
+            return None, f"Invalid camera params: fx={fx}, fy={fy}, cx={cx}, cy={cy}"
+        if np.isnan(cam_trans).any() or np.isinf(cam_trans).any():
+            return None, f"Invalid cam_trans: {cam_trans}"
+
         # 2) Build SMPL-X mesh
         with torch.no_grad():
             tens  = {k: torch.from_numpy(v).float().to(device) for k, v in params_np.items()}
@@ -204,6 +210,17 @@ def render_frame(video_id, frame_num):
         return cropped, None
 
     except Exception as e:
+        print(f"
+{'='*70}")
+        print(f"ERROR rendering frame {frame_num} of {video_id}")
+        print(f"{'='*70}")
+        print(f"Error type: {type(e).__name__}")
+        print(f"Error message: {str(e)}")
+        print(f"NPZ path: {npz_path}")
+        import traceback
+        traceback.print_exc()
+        print(f"{'='*70}
+")
         return None, str(e)
 
 def convert_to_web_compatible(input_path, output_path):
@@ -301,6 +318,9 @@ def render_video_background(video_id: str):
 
         for frame_num in range(1, total_frames + 1):
             img, error = render_frame(video_id, frame_num)
+
+            if img is None and error and frame_num <= 5:
+                print(f"[WARNING] Frame {frame_num} failed: {error[:100]}")
 
             if img is not None:
                 if img.shape[:2] != (output_h, output_w):
