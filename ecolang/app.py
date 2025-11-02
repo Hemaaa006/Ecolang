@@ -12,7 +12,7 @@ from api_client import get_api_client
 # Page configuration
 st.set_page_config(
     page_title="ECOLANG - 3D Mesh Rendering",
-    page_icon="🎬",
+    page_icon="dYZ�",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -185,7 +185,7 @@ def main():
             st.session_state.api_info = info
 
     if not st.session_state.api_healthy:
-        st.error(f"⚠️ Backend connection failed: {st.session_state.api_info}")
+        st.error(f"�s��,? Backend connection failed: {st.session_state.api_info}")
         st.info("Please ensure your Colab notebook is running with the correct ngrok URL.")
         return
 
@@ -222,21 +222,23 @@ def main():
         # Display original video with proper aspect ratio
         video_info = config.VIDEO_LIBRARY[selected_video]
         video_html = f"""
-        <div class="video-wrapper">
-            <iframe src="{video_info['video_url']}"
-                    allow="autoplay"
+        <div class=\"video-wrapper\">
+            <iframe src=\"{video_info['video_url']}\"
+                    allow=\"autoplay\"
                     allowfullscreen>
             </iframe>
         </div>
         """
         st.markdown(video_html, unsafe_allow_html=True)
 
-        # Render button
-        render_clicked = st.button("🎬 Render Video", type="primary", key="render_btn")
+        # Render button (no emoji) and full width
+        render_clicked = st.button("Render Video", type="primary", key="render_btn", use_container_width=True)
 
     # RIGHT COLUMN - Rendered Video + Progress
     with col2:
         st.subheader("Mesh Rendered Video")
+        # Single placeholder to avoid accumulating multiple players
+        video_area = st.empty()
 
         # Show rendered video if available (with autoplay)
         if st.session_state.rendered_video_url:
@@ -251,21 +253,21 @@ def main():
                     rendered_url = rendered_url.replace("preview", "preview?autoplay=1")
 
             rendered_html = f"""
-            <div class="video-wrapper">
-                <iframe src="{rendered_url}"
-                        allow="autoplay"
+            <div class=\"video-wrapper\">
+                <iframe src=\"{rendered_url}\"
+                        allow=\"autoplay\"
                         allowfullscreen>
                 </iframe>
             </div>
             """
-            st.markdown(rendered_html, unsafe_allow_html=True)
+            video_area.markdown(rendered_html, unsafe_allow_html=True)
 
         # Show progress if rendering
         elif st.session_state.rendering_in_progress:
             # Placeholder during rendering
-            st.markdown("""
-            <div class="placeholder-wrapper">
-                <div class="placeholder-content">
+            video_area.markdown("""
+            <div class=\"placeholder-wrapper\">
+                <div class=\"placeholder-content\">
                     Rendering in progress...
                 </div>
             </div>
@@ -294,7 +296,7 @@ def main():
 
                     if job_status == "complete":
                         progress_bar.progress(100)
-                        status_text.markdown("**✓ Complete!**")
+                        status_text.markdown("**�o" Complete!**")
 
                         rendered_url = progress_data.get('video_url')
                         if rendered_url:
@@ -314,10 +316,10 @@ def main():
 
         # Empty state
         else:
-            st.markdown("""
-            <div class="placeholder-wrapper">
-                <div class="placeholder-content">
-                    Select a video and click "Render Video"
+            video_area.markdown("""
+            <div class=\"placeholder-wrapper\">
+                <div class=\"placeholder-content\">
+                    Select a video and click \"Render Video\"
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -339,3 +341,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
