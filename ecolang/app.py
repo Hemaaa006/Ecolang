@@ -254,10 +254,7 @@ def main():
 
             rendered_html = f"""
             <div class=\"video-wrapper\">
-                <iframe src=\"{rendered_url}\"
-                        allow=\"autoplay\"
-                        allowfullscreen>
-                </iframe>
+                <iframe src=\"{rendered_url}\" allow=\"autoplay\" allowfullscreen></iframe>
             </div>
             """
             video_area.markdown(rendered_html, unsafe_allow_html=True)
@@ -298,12 +295,20 @@ def main():
                         progress_bar.progress(100)
                         status_text.markdown("**Complete!**")
 
-                        # Prefer direct preview URL; fallback to file_id; else note local path
+                        # Prefer direct Drive preview URL; fallback to file_id; else serve from backend
                         rendered_url = progress_data.get('video_url')
                         if not rendered_url:
                             file_id = progress_data.get('file_id')
                             if file_id:
                                 rendered_url = f"https://drive.google.com/file/d/{file_id}/preview?autoplay=1"
+
+                        # If still no URL, construct backend-served embed endpoint
+                        if not rendered_url:
+                            try:
+                                base_url = api_client.api_url.rstrip('/')
+                                rendered_url = f"{base_url}/rendered/{selected_video}"
+                            except Exception:
+                                rendered_url = None
 
                         if rendered_url:
                             st.session_state.rendered_video_url = rendered_url

@@ -257,7 +257,7 @@ print("Rendering functions loaded!")
 
 # ============= CELL 6: FastAPI =============
 from fastapi import FastAPI, BackgroundTasks
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from pydantic import BaseModel
 import time
 
@@ -378,6 +378,39 @@ async def get_progress(video_id: str):
     if job["status"] == "error":
         response["error"] = job.get("error", "Unknown error")
     return response
+
+# Serve rendered videos directly when Drive upload isn't available
+@app.get("/rendered_file/{video_id}")
+async def get_rendered_file(video_id: str):
+    path = os.path.join(BASE_PATH, "rendered_videos", f"{video_id}_rendered.mp4")
+    if not os.path.exists(path):
+        return JSONResponse(status_code=404, content={"error": "file_not_found"})
+    # Return raw MP4; browsers can play this directly
+    return FileResponse(path, media_type="video/mp4", filename=f"{video_id}_rendered.mp4")
+
+@app.get("/rendered/{video_id}", response_class=HTMLResponse)
+async def get_rendered_embed(video_id: str):
+    path = os.path.join(BASE_PATH, "rendered_videos", f"{video_id}_rendered.mp4")
+    if not os.path.exists(path):
+        return HTMLResponse(status_code=404, content="<html><body>File not found</body></html>")
+    # Simple responsive page to embed in an iframe
+    return f"""<!doctype html>
+<html>
+  <head>
+    <meta charset=\"utf-8\">
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+    <style>
+      html, body {{ height:100%; margin:0; background:#000; }}
+      .wrap {{ position:relative; width:100%; height:100%; }}
+      video {{ position:absolute; top:0; left:0; width:100%; height:100%; background:#000; }}
+    </style>
+  </head>
+  <body>
+    <div class=\"wrap\">
+      <video src=\"/rendered_file/{video_id}\" controls autoplay playsinline></video>
+    </div>
+  </body>
+  </html>"""
 
 print("FastAPI server configured!")
 
