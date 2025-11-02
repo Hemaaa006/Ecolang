@@ -12,7 +12,7 @@ from api_client import get_api_client
 # Page configuration
 st.set_page_config(
     page_title="ECOLANG - 3D Mesh Rendering",
-    page_icon="dYZ�",
+    page_icon="🎬",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -185,7 +185,7 @@ def main():
             st.session_state.api_info = info
 
     if not st.session_state.api_healthy:
-        st.error(f"�s��,? Backend connection failed: {st.session_state.api_info}")
+        st.error(f"Backend connection failed: {st.session_state.api_info}")
         st.info("Please ensure your Colab notebook is running with the correct ngrok URL.")
         return
 
@@ -296,7 +296,7 @@ def main():
 
                     if job_status == "complete":
                         progress_bar.progress(100)
-                        status_text.markdown("**�o" Complete!**")
+                        status_text.markdown("**Complete!**")
 
                         rendered_url = progress_data.get('video_url')
                         if rendered_url:
@@ -341,4 +341,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
