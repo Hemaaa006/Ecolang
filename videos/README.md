@@ -1,44 +1,21 @@
-# ECOLANG Videos
+# ECOLANG Sample Videos
 
-## Upload Your Videos Here
+This directory is only a placeholder to document the expected layout. The
+Streamlit UI discovers *actual* videos from Google Drive via the Colab backend,
+so you do **not** need to commit production MP4s into the repo.
 
-This folder should contain your sign language videos in MP4 format.
+## Using Local Samples (Optional)
 
-### Expected Videos
+1. Drop one or more MP4 files in this folder. The filename (without extension)
+   becomes the `video_id`.
+2. Ensure Drive contains matching parameter folders at  
+   `/MyDrive/ecolang/Extracted_parameters/<video_id>_parameters/`.
+3. Trigger a library refresh in the UI or call
+   `GET /render_manifest?refresh=true` on the backend.
 
-According to `signmesh/config.py`, these videos are expected:
+## Tips
 
-1. **video1_speaking.mp4** - Video 1 - Speaking
-2. **video2_gestures.mp4** - Video 2 - Gestures
-3. **video3_conversation.mp4** - Video 3 - Conversation
-4. **video4_demonstration.mp4** - Video 4 - Demonstration
-
-### Video Requirements
-
-- Format: MP4
-- Duration: 60 seconds (1800 frames at 30fps)
-- Must have corresponding NPZ parameters in Google Drive
-
-### How to Upload
-
-1. Place your MP4 files in this folder
-2. Commit and push to GitHub
-3. Videos will be accessible at: `https://raw.githubusercontent.com/Hemaaa006/Ecolang/main/videos/{filename}.mp4`
-
-### Google Drive Structure
-
-Each video must have corresponding NPZ parameters in:
-```
-/MyDrive/ecolang/Extracted_parameters/{video_name}/
-├── frame_0001_params.npz
-├── frame_0002_params.npz
-└── ... (1800 files total)
-```
-
----
-
-**Note:** You can also upload videos directly through GitHub web interface:
-1. Navigate to: https://github.com/Hemaaa006/Ecolang/tree/main/videos
-2. Click "Add file" → "Upload files"
-3. Drag and drop your MP4 files
-4. Commit the changes
+- Use H.264 MP4 for the smoothest playback in browsers.
+- Frame rate and duration are detected automatically; 30 fps is recommended.
+- Keep the repository light—treat this folder as scratch space when you need
+  local demos.

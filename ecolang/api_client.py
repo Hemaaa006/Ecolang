@@ -3,10 +3,6 @@ API Client for Colab Backend
 Handles communication with the Colab mesh rendering API
 """
 import requests
-import base64
-import numpy as np
-from PIL import Image
-import io
 import streamlit as st
 
 
@@ -33,35 +29,38 @@ class ColabAPIClient:
         except requests.exceptions.RequestException as e:
             return False, f"Connection error: {str(e)}"
 
-    def render_video(self, video_id, progress_callback=None):
+    def render_video(self, video_id, force=False):
         """
-        Request full video rendering from Colab API
+        Request full video rendering from Colab API.
 
         Args:
             video_id: Video identifier (e.g., 'ch07_speakerview_012')
-            progress_callback: Optional callback function(current, total, message)
+            force: When True, cancel any running render before starting this one.
 
         Returns:
             tuple: (video_url, status_message, response_data)
         """
         try:
-            # Make API request
             response = self.session.post(
                 f"{self.api_url}/render_video",
-                json={"video_id": video_id},
-                timeout=300,  # 5 minutes for full video
-                stream=True
+                json={"video_id": video_id, "force": force},
+                timeout=300,
+                stream=False
             )
 
-            if response.status_code == 200:
+            try:
                 result = response.json()
+            except ValueError:
+                result = {}
 
+            if response.status_code == 200:
                 if result.get('success'):
                     return result.get('video_url'), "success", result
                 else:
                     return None, f"error:{result.get('error', 'Unknown error')}", result
-            else:
-                return None, f"error:API returned status {response.status_code}", {}
+
+            error_key = result.get("error") if isinstance(result, dict) else None
+            return None, f"error:{error_key or f'status_{response.status_code}'}", result
 
         except requests.exceptions.Timeout:
             return None, "error:Request timed out", {}
@@ -69,6 +68,36 @@ class ColabAPIClient:
             return None, f"error:Connection error - {str(e)}", {}
         except Exception as e:
             return None, f"error:{str(e)}", {}
+
+    def get_video_library(self, refresh=False):
+        """Return discovered videos with status metadata."""
+        try:
+            params = {"refresh": "true"} if refresh else None
+            response = self.session.get(
+                f"{self.api_url}/video_library",
+                params=params,
+                timeout=10
+            )
+            if response.status_code == 200:
+                return True, response.json()
+            return False, {"error": f"status_{response.status_code}"}
+        except requests.exceptions.RequestException as exc:
+            return False, {"error": str(exc)}
+
+    def get_render_manifest(self, refresh=False):
+        """Fetch raw manifest data keyed by video_id."""
+        try:
+            params = {"refresh": "true"} if refresh else None
+            response = self.session.get(
+                f"{self.api_url}/render_manifest",
+                params=params,
+                timeout=10
+            )
+            if response.status_code == 200:
+                return True, response.json()
+            return False, {"error": f"status_{response.status_code}"}
+        except requests.exceptions.RequestException as exc:
+            return False, {"error": str(exc)}
 
     def get_render_progress(self, video_id):
         """
@@ -92,6 +121,14 @@ class ColabAPIClient:
 
         except Exception:
             return None
+
+    def get_original_stream_url(self, video_id):
+        """Return absolute URL for original video streaming."""
+        return f"{self.api_url}/original_file/{video_id}"
+
+    def get_rendered_stream_url(self, video_id):
+        """Return absolute URL for rendered video streaming."""
+        return f"{self.api_url}/rendered_file/{video_id}"
 
 
 @st.cache_resource
