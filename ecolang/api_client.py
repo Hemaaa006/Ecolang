@@ -42,7 +42,7 @@ class ColabAPIClient:
             progress_callback: Optional callback function(current, total, message)
 
         Returns:
-            tuple: (video_url, status_message)
+            tuple: (video_url, status_message, response_data)
         """
         try:
             # Make API request
@@ -57,18 +57,18 @@ class ColabAPIClient:
                 result = response.json()
 
                 if result.get('success'):
-                    return result.get('video_url'), "success"
+                    return result.get('video_url'), "success", result
                 else:
-                    return None, f"error:{result.get('error', 'Unknown error')}"
+                    return None, f"error:{result.get('error', 'Unknown error')}", result
             else:
-                return None, f"error:API returned status {response.status_code}"
+                return None, f"error:API returned status {response.status_code}", {}
 
         except requests.exceptions.Timeout:
-            return None, "error:Request timed out"
+            return None, "error:Request timed out", {}
         except requests.exceptions.RequestException as e:
-            return None, f"error:Connection error - {str(e)}"
+            return None, f"error:Connection error - {str(e)}", {}
         except Exception as e:
-            return None, f"error:{str(e)}"
+            return None, f"error:{str(e)}", {}
 
     def get_render_progress(self, video_id):
         """

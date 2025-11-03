@@ -253,6 +253,68 @@ def upload_to_drive_auto(file_path, file_name):
         print(f"Upload error: {e}")
         return None
 
+def check_existing_rendered_video(video_id):
+    """Check if a rendered video already exists in Google Drive"""
+    try:
+        output_dir = os.path.join(BASE_PATH, "rendered_videos")
+        file_path = os.path.join(output_dir, f"{video_id}_rendered.mp4")
+
+        # Check if file exists locally
+        if not os.path.exists(file_path):
+            return None
+
+        # File exists - now search for it in Google Drive or upload it
+        creds, _ = default()
+        service = build('drive', 'v3', credentials=creds)
+
+        # Search for the file in Google Drive
+        query = f"name='{video_id}_rendered.mp4' and trashed=false"
+        results = service.files().list(
+            q=query,
+            fields='files(id, name, size, webViewLink)',
+            pageSize=10
+        ).execute()
+
+        files = results.get('files', [])
+
+        if files:
+            # File found in Drive - use existing
+            file = files[0]
+            file_id = file.get('id')
+
+            # Ensure it's publicly accessible
+            try:
+                service.permissions().create(
+                    fileId=file_id,
+                    body={'type': 'anyone', 'role': 'reader'}
+                ).execute()
+            except:
+                pass  # Permission might already exist
+
+            size_mb = int(file.get('size', 0)) / (1024 * 1024)
+
+            return {
+                'file_id': file_id,
+                'preview_url': f"https://drive.google.com/file/d/{file_id}/preview",
+                'embed_url': f"https://drive.google.com/file/d/{file_id}/preview",
+                'size_mb': size_mb,
+                'drive_path': file_path,
+                'already_exists': True
+            }
+        else:
+            # File exists locally but not in Drive - upload it
+            upload_result = upload_to_drive_auto(file_path, f"{video_id}_rendered.mp4")
+            if upload_result:
+                upload_result['drive_path'] = file_path
+                upload_result['already_exists'] = True
+                return upload_result
+
+        return None
+
+    except Exception as e:
+        print(f"Error checking existing video: {e}")
+        return None
+
 print("Rendering functions loaded!")
 
 # ============= CELL 6: FastAPI =============
@@ -358,8 +420,36 @@ async def start_render(request: RenderRequest, background_tasks: BackgroundTasks
     video_id = request.video_id
     if video_id not in VIDEO_INFO:
         return JSONResponse(status_code=404, content={"success": False, "error": f"Video {video_id} not found"})
+
+    # Check if video already exists before rendering
+    existing_video = check_existing_rendered_video(video_id)
+    if existing_video:
+        # Video already exists - return existing info
+        render_jobs[video_id] = {
+            "status": "complete",
+            "current": VIDEO_INFO[video_id]["frames"],
+            "total": VIDEO_INFO[video_id]["frames"],
+            "video_url": existing_video['preview_url'],
+            "file_id": existing_video['file_id'],
+            "size_mb": existing_video['size_mb'],
+            "drive_path": existing_video.get('drive_path'),
+            "already_exists": True
+        }
+        return {
+            "success": True,
+            "message": "Rendered video already exists",
+            "job_id": video_id,
+            "already_exists": True,
+            "video_url": existing_video['preview_url'],
+            "file_id": existing_video['file_id'],
+            "size_mb": existing_video['size_mb']
+        }
+
+    # Check if currently rendering
     if video_id in render_jobs and render_jobs[video_id]["status"] == "rendering":
         return {"success": True, "message": "Already rendering", "job_id": video_id}
+
+    # Start new rendering
     background_tasks.add_task(render_video_background, video_id)
     return {"success": True, "message": "Rendering started", "job_id": video_id, "total_frames": VIDEO_INFO[video_id]["frames"]}
 

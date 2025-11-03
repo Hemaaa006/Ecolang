@@ -62,7 +62,7 @@ st.markdown("""
     .video-wrapper {
         position: relative;
         width: 100%;
-        padding-bottom: 80%; /* Taller player for better visibility */
+        padding-bottom: 56.25%; /* 16:9 aspect ratio for larger display */
         margin-bottom: 1.5rem;
         background: #000;
         border-radius: 12px;
@@ -70,13 +70,15 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
 
-    .video-wrapper iframe {
+    .video-wrapper iframe,
+    .video-wrapper video {
         position: absolute;
         top: 0;
         left: 0;
         width: 100%;
         height: 100%;
         border: none;
+        object-fit: contain;
     }
 
     /* Placeholder box */
@@ -221,20 +223,15 @@ def main():
 
         # Display original video with proper aspect ratio
         video_info = config.VIDEO_LIBRARY[selected_video]
-        # Build original URL with optional sync/autoplay token
         orig_url = video_info['video_url']
-        sync_token = st.session_state.get('sync_play_token')
         if 'drive.google.com' in orig_url:
             if '/file/d/' in orig_url:
                 fid = orig_url.split('/file/d/')[1].split('/')[0]
                 orig_url = f"https://drive.google.com/file/d/{fid}/preview"
-            if sync_token:
-                joiner = '&' if '?' in orig_url else '?'
-                orig_url = f"{orig_url}{joiner}autoplay=1&mute=1&sync={sync_token}"
 
         video_html = f"""
         <div class=\"video-wrapper\">
-            <iframe src=\"{orig_url}\" allow=\"autoplay\" allowfullscreen></iframe>
+            <iframe id=\"original-video\" src=\"{orig_url}\" allow=\"autoplay\" allowfullscreen></iframe>
         </div>
         """
         st.markdown(video_html, unsafe_allow_html=True)
@@ -248,28 +245,80 @@ def main():
         # Single placeholder to avoid accumulating multiple players
         video_area = st.empty()
 
-        # Show rendered video if available (with autoplay)
+        # Show rendered video if available
         if st.session_state.rendered_video_url:
-            # Modify Google Drive URL to enable autoplay
             rendered_url = st.session_state.rendered_video_url
-            if "drive.google.com" in rendered_url:
-                # Convert to embed format with autoplay
-                if "/file/d/" in rendered_url:
-                    file_id = rendered_url.split("/file/d/")[1].split("/")[0]
-                    rendered_url = f"https://drive.google.com/file/d/{file_id}/preview"
-                elif "preview" in rendered_url and "autoplay" not in rendered_url:
-                    rendered_url = rendered_url
 
-            # If a sync play was requested, force reload + autoplay
-            sync_token = st.session_state.get('sync_play_token')
-            if sync_token:
-                joiner = '&' if '?' in rendered_url else '?'
-                rendered_url = f"{rendered_url}{joiner}autoplay=1&mute=1&sync={sync_token}"
+            # Try to get direct video file URL for HTML5 video element (better sync support)
+            video_src = rendered_url
+            if "drive.google.com" in rendered_url and "/file/d/" in rendered_url:
+                file_id = rendered_url.split("/file/d/")[1].split("/")[0]
+                # Use direct Google Drive download URL for HTML5 video
+                video_src = f"https://drive.google.com/uc?export=download&id={file_id}"
 
             rendered_html = f"""
-            <div class=\"video-wrapper\">
-                <iframe src=\"{rendered_url}\" allow=\"autoplay\" allowfullscreen></iframe>
+            <div class="video-wrapper" id="rendered-wrapper">
+                <video id="rendered-video"
+                       src="{video_src}"
+                       controls
+                       controlsList="nodownload"
+                       style="width: 100%; height: 100%; object-fit: contain;">
+                    Your browser does not support the video tag.
+                </video>
+                <div id="sync-overlay" style="
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background: rgba(0, 123, 255, 0.9);
+                    color: white;
+                    padding: 15px 30px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-size: 1.1rem;
+                    font-weight: 600;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                    z-index: 1000;
+                    display: none;
+                " onclick="playSyncedVideos()">
+                    ▶ Play Both Videos
+                </div>
             </div>
+            <script>
+                function playSyncedVideos() {{
+                    // Hide the overlay
+                    document.getElementById('sync-overlay').style.display = 'none';
+
+                    // Play the rendered video
+                    const renderedVideo = document.getElementById('rendered-video');
+                    if (renderedVideo) {{
+                        renderedVideo.play().catch(e => console.log('Autoplay prevented:', e));
+                    }}
+
+                    // Reload original video iframe with autoplay
+                    const originalIframe = document.getElementById('original-video');
+                    if (originalIframe) {{
+                        const currentSrc = originalIframe.src;
+                        const separator = currentSrc.includes('?') ? '&' : '?';
+                        originalIframe.src = currentSrc.split('?')[0] + separator + 'autoplay=1';
+                    }}
+                }}
+
+                // Show overlay when rendered video is ready
+                const renderedVideo = document.getElementById('rendered-video');
+                if (renderedVideo) {{
+                    renderedVideo.addEventListener('loadedmetadata', function() {{
+                        document.getElementById('sync-overlay').style.display = 'block';
+                    }});
+
+                    // Hide overlay when video starts playing
+                    renderedVideo.addEventListener('play', function() {{
+                        setTimeout(() => {{
+                            document.getElementById('sync-overlay').style.display = 'none';
+                        }}, 500);
+                    }});
+                }}
+            </script>
             """
             video_area.markdown(rendered_html, unsafe_allow_html=True)
 
@@ -357,25 +406,22 @@ def main():
 
     # Handle render button click
     if render_clicked and not st.session_state.rendering_in_progress:
-        st.session_state.rendering_in_progress = True
-        st.session_state.rendered_video_url = None
-
         # Start rendering
-        video_url, status = api_client.render_video(selected_video)
+        video_url, status, response_data = api_client.render_video(selected_video)
 
         if "success" not in status:
             error = status.split(":", 1)[1] if ":" in status else status
             st.error(f"Failed to start: {error}")
+        elif response_data.get('already_exists'):
+            # Video already exists - show it immediately
+            st.info("Rendered video already exists! Loading existing video...")
+            st.session_state.rendered_video_url = response_data.get('video_url')
             st.session_state.rendering_in_progress = False
-        else:
             st.rerun()
-
-    # Global in-sync control (appears only when we have a rendered video)
-    if st.session_state.get('rendered_video_url'):
-        c1, c2, c3 = st.columns([1,2,1])
-        with c2:
-            if st.button("Play In Sync", key="sync_play_btn", use_container_width=True):
-                st.session_state.sync_play_token = str(int(time.time()*1000))
-                st.experimental_rerun()
+        else:
+            # Start new rendering
+            st.session_state.rendering_in_progress = True
+            st.session_state.rendered_video_url = None
+            st.rerun()
 
 # Note: main() is invoked by the Streamlit entrypoint script (streamlit_app.py).
