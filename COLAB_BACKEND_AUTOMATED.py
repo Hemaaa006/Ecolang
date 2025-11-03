@@ -219,13 +219,94 @@ def convert_to_web_compatible(input_path, output_path):
     ]
     subprocess.run(cmd, check=True, capture_output=True)
 
-def upload_to_drive_auto(file_path, file_name):
+def get_or_create_rendered_videos_folder():
+    """Find or create the rendered_videos folder in Google Drive under ecolang"""
+    try:
+        creds, _ = default()
+        service = build('drive', 'v3', credentials=creds)
+
+        # First, find the ecolang folder
+        ecolang_query = "name='ecolang' and mimeType='application/vnd.google-apps.folder' and trashed=false"
+        ecolang_results = service.files().list(
+            q=ecolang_query,
+            fields='files(id, name)',
+            pageSize=10
+        ).execute()
+
+        ecolang_folders = ecolang_results.get('files', [])
+
+        if not ecolang_folders:
+            print("Warning: 'ecolang' folder not found in Google Drive")
+            # Search for rendered_videos folder anywhere
+            query = "name='rendered_videos' and mimeType='application/vnd.google-apps.folder' and trashed=false"
+            results = service.files().list(
+                q=query,
+                fields='files(id, name)',
+                pageSize=10
+            ).execute()
+
+            folders = results.get('files', [])
+            if folders:
+                folder_id = folders[0]['id']
+                print(f"Found 'rendered_videos' folder (ID: {folder_id})")
+                return folder_id
+
+            # Create rendered_videos in root if ecolang doesn't exist
+            file_metadata = {
+                'name': 'rendered_videos',
+                'mimeType': 'application/vnd.google-apps.folder'
+            }
+            folder = service.files().create(body=file_metadata, fields='id').execute()
+            folder_id = folder.get('id')
+            print(f"Created 'rendered_videos' folder in root (ID: {folder_id})")
+            return folder_id
+
+        ecolang_id = ecolang_folders[0]['id']
+        print(f"Found 'ecolang' folder (ID: {ecolang_id})")
+
+        # Now search for rendered_videos folder inside ecolang
+        query = f"name='rendered_videos' and '{ecolang_id}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false"
+        results = service.files().list(
+            q=query,
+            fields='files(id, name)',
+            pageSize=10
+        ).execute()
+
+        folders = results.get('files', [])
+
+        if folders:
+            folder_id = folders[0]['id']
+            print(f"Found 'rendered_videos' folder (ID: {folder_id})")
+            return folder_id
+
+        # Create the folder if it doesn't exist
+        file_metadata = {
+            'name': 'rendered_videos',
+            'mimeType': 'application/vnd.google-apps.folder',
+            'parents': [ecolang_id]
+        }
+        folder = service.files().create(body=file_metadata, fields='id').execute()
+        folder_id = folder.get('id')
+        print(f"Created 'rendered_videos' folder (ID: {folder_id})")
+        return folder_id
+
+    except Exception as e:
+        print(f"Error getting/creating folder: {e}")
+        return None
+
+def upload_to_drive_auto(file_path, file_name, parent_folder_id=None):
     """Upload file to Google Drive with automatic public sharing"""
     try:
         creds, _ = default()
         service = build('drive', 'v3', credentials=creds)
 
         file_metadata = {'name': file_name, 'mimeType': 'video/mp4'}
+
+        # Add parent folder if specified
+        if parent_folder_id:
+            file_metadata['parents'] = [parent_folder_id]
+            print(f"Uploading to folder ID: {parent_folder_id}")
+
         media = MediaFileUpload(file_path, mimetype='video/mp4', resumable=True)
 
         file = service.files().create(
@@ -259,16 +340,20 @@ def check_existing_rendered_video(video_id):
         output_dir = os.path.join(BASE_PATH, "rendered_videos")
         file_path = os.path.join(output_dir, f"{video_id}_rendered.mp4")
 
-        # Check if file exists locally
-        if not os.path.exists(file_path):
+        # Get the rendered_videos folder ID
+        folder_id = get_or_create_rendered_videos_folder()
+        if not folder_id:
+            print("Error: Could not get rendered_videos folder ID")
             return None
 
-        # File exists - now search for it in Google Drive or upload it
+        # Connect to Google Drive API
         creds, _ = default()
         service = build('drive', 'v3', credentials=creds)
 
-        # Search for the file in Google Drive
-        query = f"name='{video_id}_rendered.mp4' and trashed=false"
+        # Search for the file in Google Drive WITHIN the rendered_videos folder
+        query = f"name='{video_id}_rendered.mp4' and '{folder_id}' in parents and trashed=false"
+        print(f"Searching Drive with query: {query}")
+
         results = service.files().list(
             q=query,
             fields='files(id, name, size, webViewLink)',
@@ -276,6 +361,7 @@ def check_existing_rendered_video(video_id):
         ).execute()
 
         files = results.get('files', [])
+        print(f"Found {len(files)} file(s) matching '{video_id}_rendered.mp4' in rendered_videos folder")
 
         if files:
             # File found in Drive - use existing
@@ -288,10 +374,13 @@ def check_existing_rendered_video(video_id):
                     fileId=file_id,
                     body={'type': 'anyone', 'role': 'reader'}
                 ).execute()
-            except:
-                pass  # Permission might already exist
+                print(f"Set public permissions for file {file_id}")
+            except Exception as perm_error:
+                print(f"Permission already exists or error: {perm_error}")
 
             size_mb = int(file.get('size', 0)) / (1024 * 1024)
+
+            print(f"✓ Found existing rendered video in Drive: {video_id}_rendered.mp4 (File ID: {file_id}, Size: {size_mb:.1f} MB)")
 
             return {
                 'file_id': file_id,
@@ -301,18 +390,25 @@ def check_existing_rendered_video(video_id):
                 'drive_path': file_path,
                 'already_exists': True
             }
-        else:
-            # File exists locally but not in Drive - upload it
-            upload_result = upload_to_drive_auto(file_path, f"{video_id}_rendered.mp4")
+
+        # If not found in Drive, check if it exists locally and upload it
+        if os.path.exists(file_path):
+            print(f"Found video locally but not in Drive - uploading: {video_id}_rendered.mp4")
+            upload_result = upload_to_drive_auto(file_path, f"{video_id}_rendered.mp4", parent_folder_id=folder_id)
             if upload_result:
                 upload_result['drive_path'] = file_path
                 upload_result['already_exists'] = True
+                print(f"Successfully uploaded existing local file to Drive")
                 return upload_result
 
+        # Video doesn't exist anywhere
+        print(f"✗ No existing rendered video found for: {video_id}")
         return None
 
     except Exception as e:
         print(f"Error checking existing video: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 print("Rendering functions loaded!")
@@ -338,6 +434,9 @@ async def health_check():
     return {"status": "ok", "message": "Colab API is running", "device": str(device), "model_loaded": True}
 
 def render_video_background(video_id: str):
+    # Initialize render job entry FIRST to avoid KeyError
+    render_jobs[video_id] = {"status": "initializing", "current": 0, "total": 0, "start_time": time.time()}
+
     try:
         info = VIDEO_INFO[video_id]
         total_frames = info['frames']
@@ -357,7 +456,9 @@ def render_video_background(video_id: str):
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         video_writer = cv2.VideoWriter(temp_path, fourcc, fps, (output_w, output_h))
 
-        render_jobs[video_id] = {"status": "rendering", "current": 0, "total": total_frames, "start_time": time.time()}
+        # Update status to rendering with correct total
+        render_jobs[video_id]["status"] = "rendering"
+        render_jobs[video_id]["total"] = total_frames
 
         last_valid_frame = None
 
@@ -391,7 +492,9 @@ def render_video_background(video_id: str):
         os.remove(temp_path)
 
         print(f"Uploading to Google Drive...")
-        upload_result = upload_to_drive_auto(final_path, f"{video_id}_rendered.mp4")
+        # Get folder ID and upload to correct location
+        folder_id = get_or_create_rendered_videos_folder()
+        upload_result = upload_to_drive_auto(final_path, f"{video_id}_rendered.mp4", parent_folder_id=folder_id)
 
         if upload_result:
             render_jobs[video_id]["status"] = "complete"
