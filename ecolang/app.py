@@ -62,7 +62,7 @@ st.markdown("""
     .video-wrapper {
         position: relative;
         width: 100%;
-        padding-bottom: 75%; /* 4:3 aspect ratio */
+        padding-bottom: 80%; /* Taller player for better visibility */
         margin-bottom: 1.5rem;
         background: #000;
         border-radius: 12px;
@@ -221,12 +221,20 @@ def main():
 
         # Display original video with proper aspect ratio
         video_info = config.VIDEO_LIBRARY[selected_video]
+        # Build original URL with optional sync/autoplay token
+        orig_url = video_info['video_url']
+        sync_token = st.session_state.get('sync_play_token')
+        if 'drive.google.com' in orig_url:
+            if '/file/d/' in orig_url:
+                fid = orig_url.split('/file/d/')[1].split('/')[0]
+                orig_url = f"https://drive.google.com/file/d/{fid}/preview"
+            if sync_token:
+                joiner = '&' if '?' in orig_url else '?'
+                orig_url = f"{orig_url}{joiner}autoplay=1&mute=1&sync={sync_token}"
+
         video_html = f"""
         <div class=\"video-wrapper\">
-            <iframe src=\"{video_info['video_url']}\"
-                    allow=\"autoplay\"
-                    allowfullscreen>
-            </iframe>
+            <iframe src=\"{orig_url}\" allow=\"autoplay\" allowfullscreen></iframe>
         </div>
         """
         st.markdown(video_html, unsafe_allow_html=True)
@@ -248,9 +256,15 @@ def main():
                 # Convert to embed format with autoplay
                 if "/file/d/" in rendered_url:
                     file_id = rendered_url.split("/file/d/")[1].split("/")[0]
-                    rendered_url = f"https://drive.google.com/file/d/{file_id}/preview?autoplay=1"
+                    rendered_url = f"https://drive.google.com/file/d/{file_id}/preview"
                 elif "preview" in rendered_url and "autoplay" not in rendered_url:
-                    rendered_url = rendered_url.replace("preview", "preview?autoplay=1")
+                    rendered_url = rendered_url
+
+            # If a sync play was requested, force reload + autoplay
+            sync_token = st.session_state.get('sync_play_token')
+            if sync_token:
+                joiner = '&' if '?' in rendered_url else '?'
+                rendered_url = f"{rendered_url}{joiner}autoplay=1&mute=1&sync={sync_token}"
 
             rendered_html = f"""
             <div class=\"video-wrapper\">
@@ -356,5 +370,12 @@ def main():
         else:
             st.rerun()
 
-if __name__ == "__main__":
-    main()
+    # Global in-sync control (appears only when we have a rendered video)
+    if st.session_state.get('rendered_video_url'):
+        c1, c2, c3 = st.columns([1,2,1])
+        with c2:
+            if st.button("Play In Sync", key="sync_play_btn", use_container_width=True):
+                st.session_state.sync_play_token = str(int(time.time()*1000))
+                st.experimental_rerun()
+
+# Note: main() is invoked by the Streamlit entrypoint script (streamlit_app.py).
